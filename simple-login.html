@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMsgBox Admin Console - Device Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .alert.show {
+            display: block;
+        }
+        
+        .alert-error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+        }
+        
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #66bb6a;
+        }
+        
+        .alert-info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #42a5f5;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .device-list {
+            display: none;
+            margin-top: 30px;
+        }
+        
+        .device-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .device-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .device-meta {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DMsgBox Admin Console</h1>
+        <p class="subtitle">Device Management System</p>
+        
+        <div id="loginSection">
+            <div id="errorAlert" class="alert alert-error"></div>
+            <div id="infoAlert" class="alert alert-info"></div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required placeholder="ken@alsocando.com" value="ken@alsocando.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required placeholder="••••••••" value="Admin@2026Ken123">
+                </div>
+                
+                <button type="submit">Sign In</button>
+            </form>
+            
+            <div class="loading" id="loadingSection">
+                <div class="spinner"></div>
+                <p>Signing in...</p>
+            </div>
+        </div>
+        
+        <div id="dashboardSection" style="display:none;">
+            <button onclick="logout()">Logout</button>
+            <div class="device-list" id="deviceList">
+                <h2>Devices</h2>
+                <div id="deviceContent"></div>
+            </div>
+            <div id="nothingHere" style="text-align: center; padding: 20px; color: #999;">
+                No devices found yet. Devices will appear here when the Android app registers them.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://bjpwckpmktnwtdzpmnvn.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqcHdja3Bta3Rud3RkenBtbnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMDc1NTAsImV4cCI6MjA5MjU4MzU1MH0.BMHQDBEANQdZhm4_62Jh9sewdZnAxOZzvKcZCPUoDd0';
+
+        const loginForm = document.getElementById('loginForm');
+        const errorAlert = document.getElementById('errorAlert');
+        const infoAlert = document.getElementById('infoAlert');
+        const loadingSection = document.getElementById('loadingSection');
+        const loginSection = document.getElementById('loginSection');
+        const dashboardSection = document.getElementById('dashboardSection');
+        
+        let currentUser = null;
+        let sessionToken = null;
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            hideAlerts();
+            showLoading();
+            
+            try {
+                // Make direct REST API call to Supabase Auth
+                const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error_description || data.message || 'Login failed');
+                }
+                
+                if (!data.access_token) {
+                    throw new Error('No access token received');
+                }
+                
+                // Store session
+                currentUser = {
+                    id: data.user.id,
+                    email: data.user.email
+                };
+                sessionToken = data.access_token;
+                
+                // Check admin role
+                const isAdmin = await checkAdminRole(data.user.id, sessionToken);
+                if (!isAdmin) {
+                    throw new Error('Only administrators can access this console');
+                }
+                
+                // Show dashboard
+                showDashboard();
+                loadDevices(sessionToken);
+                
+            } catch (error) {
+                showError(error.message || 'Login failed');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        async function checkAdminRole(userId, token) {
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`,
+                    {
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    console.error('Failed to check admin role');
+                    return false;
+                }
+                
+                const data = await response.json();
+                return data.length > 0 && data[0].role === 'admin';
+            } catch (error) {
+                console.error('Error checking admin role:', error);
+                return false;
+            }
+        }
+
+        async function loadDevices(token) {
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/devices`,
+                    {
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load devices');
+                }
+                
+                const devices = await response.json();
+                
+                if (devices.length === 0) {
+                    document.getElementById('nothingHere').style.display = 'block';
+                    document.getElementById('deviceList').style.display = 'none';
+                    return;
+                }
+                
+                document.getElementById('deviceList').style.display = 'block';
+                document.getElementById('nothingHere').style.display = 'none';
+                
+                const content = devices.map(device => `
+                    <div class="device-item">
+                        <div class="device-name">${device.device_name || 'Unknown Device'}</div>
+                        <div class="device-meta">
+                            ID: ${device.device_id}<br>
+                            Status: ${device.is_revoked ? '❌ Revoked' : '✅ Active'}
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('deviceContent').innerHTML = content;
+                
+            } catch (error) {
+                showError('Failed to load devices: ' + error.message);
+            }
+        }
+
+        function showDashboard() {
+            loginSection.style.display = 'none';
+            dashboardSection.style.display = 'block';
+            showInfo(`Welcome, ${currentUser.email}!`);
+        }
+
+        function logout() {
+            currentUser = null;
+            sessionToken = null;
+            loginSection.style.display = 'block';
+            dashboardSection.style.display = 'none';
+            loginForm.reset();
+            hideAlerts();
+        }
+
+        function showError(message) {
+            errorAlert.textContent = message;
+            errorAlert.classList.add('show');
+        }
+
+        function showInfo(message) {
+            infoAlert.textContent = message;
+            infoAlert.classList.add('show');
+        }
+
+        function hideAlerts() {
+            errorAlert.classList.remove('show');
+            infoAlert.classList.remove('show');
+        }
+
+        function showLoading() {
+            loadingSection.style.display = 'block';
+            loginForm.style.display = 'none';
+        }
+
+        function hideLoading() {
+            loadingSection.style.display = 'none';
+            loginForm.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
