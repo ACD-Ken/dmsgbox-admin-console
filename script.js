@@ -7,7 +7,7 @@
 
 // Configuration
 const SUPABASE_URL = 'https://bjpwckpmktnwtdzpmnvn.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqcHdja3BtYXRmZ3dtdHdkdHptcG5udiIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzE0MzI1NjUwLCJleHAiOjE4NzIwOTMyNTB9.2l0DJK5oNK6XRd8-3_5pLuKkqR7M9jA2mKL3oL5cQ8k';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqcHdja3Bta3Rud3RkenBtbnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMDc1NTAsImV4cCI6MjA5MjU4MzU1MH0.BMHQDBEANQdZhm4_62Jh9sewdZnAxOZzvKcZCPUoDd0';
 
 // Initialize Supabase
 const { createClient } = window.supabase;
