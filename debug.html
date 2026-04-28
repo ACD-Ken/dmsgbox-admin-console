@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Debug Test - DMsgBox Admin Console</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #ccc;
+            border-radius: 4px;
+        }
+        .test.success {
+            border-left-color: #4CAF50;
+            background: #f1f8e9;
+        }
+        .test.error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        .test.loading {
+            border-left-color: #2196F3;
+            background: #e3f2fd;
+        }
+        h1 {
+            color: #333;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Supabase Connection Debug</h1>
+    <p>This page tests your Supabase connection. Check the results below:</p>
+
+    <!-- Test 1: Supabase JS Library -->
+    <div class="test loading" id="test1">
+        <div class="status">1. Loading Supabase JS Library...</div>
+        <div id="test1-result"></div>
+    </div>
+
+    <!-- Test 2: Connection to Supabase -->
+    <div class="test loading" id="test2">
+        <div class="status">2. Connecting to Supabase...</div>
+        <div id="test2-result"></div>
+    </div>
+
+    <!-- Test 3: Login Test -->
+    <div class="test" id="test3">
+        <div class="status">3. Test Login</div>
+        <p>
+            <input type="email" id="testEmail" placeholder="ken@alsocando.com" value="ken@alsocando.com">
+            <input type="password" id="testPassword" placeholder="Password" value="Admin@2026Ken123">
+            <button onclick="testLogin()">Test Login</button>
+        </p>
+        <div id="test3-result"></div>
+    </div>
+
+    <!-- Test 4: Check User Profile -->
+    <div class="test" id="test4">
+        <div class="status">4. Check User Profile...</div>
+        <div id="test4-result"></div>
+    </div>
+
+    <script async src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        const SUPABASE_URL = 'https://bjpwckpmktnwtdzpmnvn.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqcHdja3Bta3Rud3RkenBtbnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMDc1NTAsImV4cCI6MjA5MjU4MzU1MH0.BMHQDBEANQdZhm4_62Jh9sewdZnAxOZzvKcZCPUoDd0';
+
+        let supabase = null;
+
+        // Test 1: Wait for Supabase library to load
+        window.addEventListener('load', async () => {
+            setTimeout(() => {
+                if (window.supabase) {
+                    document.getElementById('test1').classList.remove('loading');
+                    document.getElementById('test1').classList.add('success');
+                    document.getElementById('test1-result').innerHTML = '<p>✅ Supabase JS library loaded successfully</p>';
+                    
+                    // Test 2: Create client
+                    try {
+                        const { createClient } = window.supabase;
+                        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                        
+                        document.getElementById('test2').classList.remove('loading');
+                        document.getElementById('test2').classList.add('success');
+                        document.getElementById('test2-result').innerHTML = `
+                            <p>✅ Connected to Supabase</p>
+                            <pre>URL: ${SUPABASE_URL}
+API Key: ${SUPABASE_ANON_KEY.substring(0, 50)}...</pre>
+                        `;
+                    } catch (error) {
+                        document.getElementById('test2').classList.remove('loading');
+                        document.getElementById('test2').classList.add('error');
+                        document.getElementById('test2-result').innerHTML = `<p>❌ Error: ${error.message}</p>`;
+                    }
+                } else {
+                    document.getElementById('test1').classList.remove('loading');
+                    document.getElementById('test1').classList.add('error');
+                    document.getElementById('test1-result').innerHTML = '<p>❌ Supabase JS library failed to load</p>';
+                }
+            }, 2000);
+        });
+
+        async function testLogin() {
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+
+            if (!supabase) {
+                document.getElementById('test3-result').innerHTML = '<p>❌ Supabase not initialized yet. Wait a moment and try again.</p>';
+                return;
+            }
+
+            document.getElementById('test3').classList.remove('error', 'success');
+            document.getElementById('test3').classList.add('loading');
+            document.getElementById('test3-result').innerHTML = '<p>⏳ Testing login...</p>';
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) {
+                    throw error;
+                }
+
+                document.getElementById('test3').classList.remove('loading');
+                document.getElementById('test3').classList.add('success');
+                document.getElementById('test3-result').innerHTML = `
+                    <p>✅ Login successful!</p>
+                    <pre>User ID: ${data.user.id}
+Email: ${data.user.email}</pre>
+                `;
+
+                // Test 4: Check user profile
+                checkUserProfile(data.user.id);
+
+            } catch (error) {
+                document.getElementById('test3').classList.remove('loading');
+                document.getElementById('test3').classList.add('error');
+                document.getElementById('test3-result').innerHTML = `
+                    <p>❌ Login failed</p>
+                    <pre>Error: ${error.message}</pre>
+                `;
+            }
+        }
+
+        async function checkUserProfile(userId) {
+            try {
+                const { data, error } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+
+                if (error) {
+                    throw error;
+                }
+
+                document.getElementById('test4').classList.remove('loading', 'error');
+                document.getElementById('test4').classList.add('success');
+                document.getElementById('test4-result').innerHTML = `
+                    <p>✅ User profile found</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+
+                if (data.role === 'admin') {
+                    document.getElementById('test4-result').innerHTML += '<p>✅ Admin role confirmed!</p>';
+                } else {
+                    document.getElementById('test4-result').innerHTML += `<p>⚠️ User role is "${data.role}", not "admin"</p>`;
+                }
+            } catch (error) {
+                document.getElementById('test4').classList.remove('loading');
+                document.getElementById('test4').classList.add('error');
+                document.getElementById('test4-result').innerHTML = `
+                    <p>❌ Error checking user profile</p>
+                    <pre>Error: ${error.message}</pre>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
