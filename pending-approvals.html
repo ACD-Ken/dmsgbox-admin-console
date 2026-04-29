@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMsgBox Admin — Pending Approvals</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        .topbar {
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .topbar h1 { font-size: 18px; color: #29b6f6; }
+        .topbar nav a {
+            color: #94a3b8;
+            text-decoration: none;
+            margin-left: 20px;
+            font-size: 14px;
+        }
+        .topbar nav a:hover { color: #e2e8f0; }
+        .topbar nav a.active { color: #29b6f6; }
+        .content { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+        .page-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        .page-subtitle { color: #64748b; margin-bottom: 28px; font-size: 14px; }
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-header h2 { font-size: 15px; font-weight: 600; }
+        .badge {
+            background: #29b6f6;
+            color: #000;
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .badge.pending { background: #f59e0b; }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left;
+            padding: 12px 20px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            background: #0f172a;
+        }
+        td { padding: 14px 20px; border-top: 1px solid #1e293b; font-size: 14px; }
+        tr:hover td { background: #0f172a33; }
+        .email { font-weight: 500; }
+        .date { color: #64748b; font-size: 13px; }
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-pending { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; }
+        .status-approved { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+        .btn {
+            padding: 7px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-approve { background: #22c55e; color: #000; }
+        .btn-reject { background: #ef4444; color: #fff; margin-left: 8px; }
+        .btn-refresh {
+            background: #334155;
+            color: #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .empty { padding: 40px; text-align: center; color: #64748b; }
+        #loginSection {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .login-box {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 40px;
+            width: 360px;
+        }
+        .login-box h2 { margin-bottom: 24px; color: #29b6f6; }
+        input {
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #e2e8f0;
+            padding: 10px 14px;
+            font-size: 14px;
+            margin-bottom: 14px;
+        }
+        .btn-login { width: 100%; background: #29b6f6; color: #000; padding: 11px; }
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            background: #1e293b; border: 1px solid #334155;
+            border-radius: 10px; padding: 14px 20px;
+            font-size: 14px; display: none;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        .toast.show { display: block; }
+        .toast.success { border-color: #22c55e44; color: #22c55e; }
+        .toast.error { border-color: #ef444444; color: #ef4444; }
+        #mainSection { display: none; }
+    </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="loginSection">
+    <div class="login-box">
+        <h2>Admin Sign In</h2>
+        <input type="email" id="adminEmail" placeholder="Admin email" />
+        <input type="password" id="adminPassword" placeholder="Password" />
+        <button class="btn btn-login" onclick="adminLogin()">Sign In</button>
+        <p id="loginError" style="color:#ef4444;margin-top:12px;font-size:13px;display:none;"></p>
+    </div>
+</div>
+
+<!-- Main -->
+<div id="mainSection">
+    <div class="topbar">
+        <h1>DMsgBox Admin</h1>
+        <nav>
+            <a href="simple-login.html">Devices</a>
+            <a href="pending-approvals.html" class="active">Approvals</a>
+            <a href="#" onclick="signOut()">Sign Out</a>
+        </nav>
+    </div>
+
+    <div class="content">
+        <div class="page-title">User Approvals</div>
+        <div class="page-subtitle">Approve or reject new user registrations before they can access the app.</div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Pending <span class="badge pending" id="pendingCount">0</span></h2>
+                <button class="btn-refresh" onclick="loadUsers()">↻ Refresh</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Registered</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="pendingBody">
+                    <tr><td colspan="4" class="empty">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Approved <span class="badge" id="approvedCount">0</span></h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Approved At</th>
+                        <th>Approved By</th>
+                    </tr>
+                </thead>
+                <tbody id="approvedBody">
+                    <tr><td colspan="3" class="empty">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const SUPABASE_URL = 'https://bjpwckpmktnwtdzpmnvn.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqcHdja3Bta3Rud3RkenBtbnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMDc1NTAsImV4cCI6MjA5MjU4MzU1MH0.BMHQDBEANQdZhm4_62Jh9sewdZnAxOZzvKcZCPUoDd0';
+
+    let accessToken = sessionStorage.getItem('adminToken');
+    let adminEmail = sessionStorage.getItem('adminEmail');
+
+    function headers(token) {
+        return {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`
+        };
+    }
+
+    async function adminLogin() {
+        const email = document.getElementById('adminEmail').value.trim();
+        const password = document.getElementById('adminPassword').value;
+        const errEl = document.getElementById('loginError');
+        errEl.style.display = 'none';
+
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errEl.textContent = data.msg || data.error_description || 'Sign in failed';
+            errEl.style.display = 'block';
+            return;
+        }
+
+        // Verify admin role
+        const profileRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/admin_console_users?email=eq.${encodeURIComponent(email)}&select=role`,
+            { headers: headers(data.access_token) }
+        );
+        const profiles = await profileRes.json();
+        if (!profiles.length) {
+            errEl.textContent = 'Not authorised as admin.';
+            errEl.style.display = 'block';
+            return;
+        }
+
+        accessToken = data.access_token;
+        adminEmail = email;
+        sessionStorage.setItem('adminToken', accessToken);
+        sessionStorage.setItem('adminEmail', adminEmail);
+        showMain();
+    }
+
+    function showMain() {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('mainSection').style.display = 'block';
+        loadUsers();
+    }
+
+    function signOut() {
+        sessionStorage.clear();
+        location.reload();
+    }
+
+    async function loadUsers() {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/user_profiles?select=id,email,is_approved,approved_by,approved_at,created_at&order=created_at.desc`,
+            { headers: headers(accessToken) }
+        );
+        if (!res.ok) { showToast('Failed to load users', 'error'); return; }
+        const users = await res.json();
+
+        const pending = users.filter(u => !u.is_approved);
+        const approved = users.filter(u => u.is_approved);
+
+        document.getElementById('pendingCount').textContent = pending.length;
+        document.getElementById('approvedCount').textContent = approved.length;
+
+        document.getElementById('pendingBody').innerHTML = pending.length
+            ? pending.map(u => `
+                <tr>
+                    <td class="email">${u.email}</td>
+                    <td class="date">${formatDate(u.created_at)}</td>
+                    <td><span class="status-badge status-pending">Pending</span></td>
+                    <td>
+                        <button class="btn btn-approve" onclick="approveUser('${u.id}','${u.email}')">Approve</button>
+                        <button class="btn btn-reject" onclick="rejectUser('${u.id}','${u.email}')">Reject</button>
+                    </td>
+                </tr>`).join('')
+            : '<tr><td colspan="4" class="empty">No pending approvals</td></tr>';
+
+        document.getElementById('approvedBody').innerHTML = approved.length
+            ? approved.map(u => `
+                <tr>
+                    <td class="email">${u.email}</td>
+                    <td class="date">${formatDate(u.approved_at)}</td>
+                    <td class="date">${u.approved_by || '—'}</td>
+                </tr>`).join('')
+            : '<tr><td colspan="3" class="empty">No approved users yet</td></tr>';
+    }
+
+    async function approveUser(userId, email) {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`,
+            {
+                method: 'PATCH',
+                headers: { ...headers(accessToken), 'Prefer': 'return=minimal' },
+                body: JSON.stringify({
+                    is_approved: true,
+                    approved_by: adminEmail,
+                    approved_at: new Date().toISOString()
+                })
+            }
+        );
+        if (res.ok || res.status === 204) {
+            showToast(`✓ ${email} approved`, 'success');
+            loadUsers();
+        } else {
+            showToast('Failed to approve user', 'error');
+        }
+    }
+
+    async function rejectUser(userId, email) {
+        if (!confirm(`Delete account for ${email}? This cannot be undone.`)) return;
+        // Delete the profile — the auth.users cascade will handle the rest
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`,
+            { method: 'DELETE', headers: { ...headers(accessToken), 'Prefer': 'return=minimal' } }
+        );
+        if (res.ok || res.status === 204) {
+            showToast(`${email} rejected and removed`, 'success');
+            loadUsers();
+        } else {
+            showToast('Failed to reject user', 'error');
+        }
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleString();
+    }
+
+    function showToast(msg, type = 'success') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = `toast show ${type}`;
+        setTimeout(() => t.className = 'toast', 3000);
+    }
+
+    // Auto-show main if already logged in
+    if (accessToken) showMain();
+</script>
+</body>
+</html>
