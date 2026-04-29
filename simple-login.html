@@ -281,8 +281,9 @@
 
         async function checkAdminRole(userId, token) {
             try {
+                const email = currentUser.email;
                 const response = await fetch(
-                    `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`,
+                    `${SUPABASE_URL}/rest/v1/admin_console_users?email=eq.${encodeURIComponent(email)}&select=role`,
                     {
                         headers: {
                             'apikey': SUPABASE_ANON_KEY,
@@ -290,12 +291,12 @@
                         }
                     }
                 );
-                
+
                 if (!response.ok) {
                     console.error('Failed to check admin role');
                     return false;
                 }
-                
+
                 const data = await response.json();
                 return data.length > 0 && data[0].role === 'admin';
             } catch (error) {
