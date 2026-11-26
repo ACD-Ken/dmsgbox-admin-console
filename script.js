@@ -5,13 +5,7 @@
  * Integrates with Supabase for data management and RLS-protected operations.
  */
 
-// Configuration
-const SUPABASE_URL = 'https://bjpwckpmktnwtdzpmnvn.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqcHdja3Bta3Rud3RkenBtbnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMDc1NTAsImV4cCI6MjA5MjU4MzU1MH0.BMHQDBEANQdZhm4_62Jh9sewdZnAxOZzvKcZCPUoDd0';
-
-// Initialize Supabase
-const { createClient } = window.supabase;
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const { client: supabase, checkAdminSession, signInUrl } = window.dmsgboxAdmin;
 
 // State
 let currentUser = null;
@@ -21,7 +15,6 @@ let selectedDeviceId = null;
 // DOM Elements
 const loginPanel = document.getElementById('loginPanel');
 const mainContent = document.getElementById('mainContent');
-const loginForm = document.getElementById('loginForm');
 const logoutBtn = document.getElementById('logoutBtn');
 const refreshBtn = document.getElementById('refreshBtn');
 const searchInput = document.getElementById('searchInput');
@@ -39,68 +32,14 @@ const detailModal = document.getElementById('detailModal');
 // ============================================
 
 /**
- * Handle login form submission
- */
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-
-    try {
-        showLoading('loginPanel');
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        });
-
-        if (error) throw error;
-
-        currentUser = data.user;
-        
-        // Verify admin role
-        const isAdmin = await checkAdminRole(currentUser.id);
-        if (!isAdmin) {
-            throw new Error('Only administrators can access this console');
-        }
-
-        showSuccess('Successfully logged in');
-        showMainContent();
-        loadDevices();
-    } catch (error) {
-        showError(`Login failed: ${error.message}`);
-    } finally {
-        hideLoading('loginPanel');
-    }
-});
-
-/**
- * Check if user has admin role
- */
-async function checkAdminRole(userId) {
-    try {
-        const { data, error } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('id', userId)
-            .single();
-
-        if (error) throw error;
-        return data?.role === 'admin';
-    } catch (error) {
-        console.error('Error checking admin role:', error);
-        return false;
-    }
-}
-
-/**
  * Handle logout
  */
 logoutBtn.addEventListener('click', async () => {
     try {
-        await supabase.auth.signOut();
+        const { error } = await supabase.auth.signOut({ scope: 'local' });
+        if (error) throw error;
         currentUser = null;
         allDevices = [];
-        loginForm.reset();
         showLoginPanel();
     } catch (error) {
         showError(`Logout failed: ${error.message}`);
@@ -181,7 +120,7 @@ function renderDevices(devices) {
     emptyState.style.display = 'none';
 
     let html = '';
-    devices.forEach(device => {
+    devices.forEach((device, index) => {
         const isRevoked = device.is_revoked;
         const statusBadge = isRevoked
             ? '<span class="badge badge-revoked">REVOKED</span>'
@@ -193,20 +132,27 @@ function renderDevices(devices) {
         html += `
             <tr>
                 <td><strong>${escapeHtml(device.device_name || 'Unknown')}</strong></td>
-                <td><code>${device.device_id.substring(0, 12)}...</code></td>
-                <td>${device.user_id.substring(0, 8)}...</td>
+                <td><code>${escapeHtml(device.device_id?.substring(0, 12) || '')}...</code></td>
+                <td>${escapeHtml(device.user_id?.substring(0, 8) || '')}...</td>
                 <td>${createdDate}</td>
                 <td>${lastActiveDate}</td>
                 <td>${statusBadge}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="showDeviceDetail('${device.id}')">View</button>
-                    ${!isRevoked ? `<button class="btn btn-sm btn-danger" onclick="openRevokeModal('${device.id}', '${escapeHtml(device.device_name || 'Unknown')}')">Revoke</button>` : ''}
+                    <button class="btn btn-sm btn-primary" data-view="${index}">View</button>
+                    ${!isRevoked ? `<button class="btn btn-sm btn-danger" data-revoke="${index}">Revoke</button>` : ''}
                 </td>
             </tr>
         `;
     });
 
     devicesTableBody.innerHTML = html;
+    for (const button of devicesTableBody.querySelectorAll('[data-view]')) {
+        button.addEventListener('click', () => showDeviceDetail(devices[Number(button.dataset.view)].id));
+    }
+    for (const button of devicesTableBody.querySelectorAll('[data-revoke]')) {
+        const device = devices[Number(button.dataset.revoke)];
+        button.addEventListener('click', () => openRevokeModal(device.id, device.device_name || 'Unknown'));
+    }
 }
 
 /**
@@ -236,11 +182,11 @@ async function showDeviceDetail(deviceId) {
                     </div>
                     <div>
                         <label style="font-weight: 500; color: #6b7280; font-size: 0.875rem;">Device ID</label>
-                        <p style="margin: 0.5rem 0 1rem 0; font-family: monospace; font-size: 0.875rem; word-break: break-all;">${device.device_id}</p>
+                        <p style="margin: 0.5rem 0 1rem 0; font-family: monospace; font-size: 0.875rem; word-break: break-all;">${escapeHtml(device.device_id || '')}</p>
                     </div>
                     <div>
                         <label style="font-weight: 500; color: #6b7280; font-size: 0.875rem;">User ID</label>
-                        <p style="margin: 0.5rem 0 1rem 0; font-family: monospace; font-size: 0.875rem;">${device.user_id}</p>
+                        <p style="margin: 0.5rem 0 1rem 0; font-family: monospace; font-size: 0.875rem;">${escapeHtml(device.user_id || '')}</p>
                     </div>
                     <div>
                         <label style="font-weight: 500; color: #6b7280; font-size: 0.875rem;">Registered</label>
@@ -259,7 +205,7 @@ async function showDeviceDetail(deviceId) {
                             Revoked at: ${device.revoked_at ? formatDate(device.revoked_at) : 'N/A'}
                         </p>
                         <p style="margin: 0.5rem 0; color: #6b7280; font-size: 0.875rem;">
-                            Revoked by: ${device.revoked_by ? device.revoked_by.substring(0, 8) + '...' : 'System'}
+                            Revoked by: ${device.revoked_by ? escapeHtml(device.revoked_by.substring(0, 8)) + '...' : 'System'}
                         </p>
                     </div>
                 ` : ''}
@@ -300,12 +246,10 @@ document.getElementById('confirmRevokeBtn').addEventListener('click', async () =
     try {
         const reason = document.getElementById('revocationReason').value || 'Admin revocation';
         
-        // Call revoke device RPC function
-        const { data, error } = await supabase
-            .rpc('revoke_device', {
-                p_device_id: selectedDeviceId,
-                p_reason: reason
-            });
+        const { error } = await supabase.functions.invoke('admin/devices/' + encodeURIComponent(selectedDeviceId), {
+            method: 'DELETE',
+            body: { reason },
+        });
 
         if (error) throw error;
 
@@ -462,19 +406,16 @@ function escapeHtml(text) {
  */
 async function initializeApp() {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
+        const { user, state } = await checkAdminSession();
+        if (state === 'mfa') return location.replace(signInUrl('devices'));
+        if (state === 'ready') {
             currentUser = user;
-            const isAdmin = await checkAdminRole(user.id);
-            if (isAdmin) {
-                showMainContent();
-                loadDevices();
-            } else {
-                showError('Only administrators can access this console');
-                showLoginPanel();
-            }
+            showMainContent();
+            await loadDevices();
         } else {
             showLoginPanel();
+            if (state === 'forbidden') document.getElementById('loginError').textContent = 'Administrator access required.';
+            document.getElementById('loginError').style.display = state === 'forbidden' ? 'block' : 'none';
         }
     } catch (error) {
         console.error('Initialization error:', error);

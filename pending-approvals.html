@@ -145,9 +145,7 @@
 <div id="loginSection">
     <div class="login-box">
         <h2>Admin Sign In</h2>
-        <input type="email" id="adminEmail" placeholder="Admin email" />
-        <input type="password" id="adminPassword" placeholder="Password" />
-        <button class="btn btn-login" onclick="adminLogin()">Sign In</button>
+        <a class="btn btn-login" href="/site/DMB/admin-login.html?console=approvals">Sign In</a>
         <p id="loginError" style="color:#ef4444;margin-top:12px;font-size:13px;display:none;"></p>
     </div>
 </div>
@@ -157,7 +155,7 @@
     <div class="topbar">
         <h1>DMsgBox Admin</h1>
         <nav>
-            <a href="simple-login.html">Devices</a>
+            <a href="index.html">Devices</a>
             <a href="pending-approvals.html" class="active">Approvals</a>
             <a href="#" onclick="signOut()">Sign Out</a>
         </nav>
@@ -209,157 +207,111 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0/dist/umd/supabase.js" integrity="sha384-OMZvx3Vy2g+m2/bV7wq4vKCSjS3P2+OVcOXSaqWaoK3ZoSAHaje1LSM9FK4MNk2J" crossorigin="anonymous"></script>
+<script src="admin-session.js"></script>
 <script>
-    const SUPABASE_URL = 'https://bjpwckpmktnwtdzpmnvn.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqcHdja3Bta3Rud3RkenBtbnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMDc1NTAsImV4cCI6MjA5MjU4MzU1MH0.BMHQDBEANQdZhm4_62Jh9sewdZnAxOZzvKcZCPUoDd0';
+    const { client, checkAdminSession, signInUrl } = window.dmsgboxAdmin;
+    const byId = (id) => document.getElementById(id);
 
-    let accessToken = sessionStorage.getItem('adminToken');
-    let adminEmail = sessionStorage.getItem('adminEmail');
+    sessionStorage.removeItem('adminToken');
+    sessionStorage.removeItem('adminEmail');
 
-    function headers(token) {
-        return {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`
-        };
+    function addText(row, text, className = '') {
+        const cell = row.insertCell();
+        cell.className = className;
+        cell.textContent = text;
+        return cell;
     }
 
-    async function adminLogin() {
-        const email = document.getElementById('adminEmail').value.trim();
-        const password = document.getElementById('adminPassword').value;
-        const errEl = document.getElementById('loginError');
-        errEl.style.display = 'none';
-
-        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-            method: 'POST',
-            headers: headers(),
-            body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-            errEl.textContent = data.msg || data.error_description || 'Sign in failed';
-            errEl.style.display = 'block';
+    function fillTable(body, rows, emptyMessage, columns, render) {
+        body.replaceChildren();
+        if (!rows.length) {
+            addText(body.insertRow(), emptyMessage, 'empty').colSpan = columns;
             return;
         }
-
-        // Verify admin role
-        const profileRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/admin_console_users?email=eq.${encodeURIComponent(email)}&select=role`,
-            { headers: headers(data.access_token) }
-        );
-        const profiles = await profileRes.json();
-        if (!profiles.length) {
-            errEl.textContent = 'Not authorised as admin.';
-            errEl.style.display = 'block';
-            return;
-        }
-
-        accessToken = data.access_token;
-        adminEmail = email;
-        sessionStorage.setItem('adminToken', accessToken);
-        sessionStorage.setItem('adminEmail', adminEmail);
-        showMain();
+        for (const user of rows) render(body.insertRow(), user);
     }
 
-    function showMain() {
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('mainSection').style.display = 'block';
-        loadUsers();
-    }
-
-    function signOut() {
-        sessionStorage.clear();
-        location.reload();
+    function addAction(cell, label, className, handler) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn ' + className;
+        button.textContent = label;
+        button.addEventListener('click', handler);
+        cell.append(button);
     }
 
     async function loadUsers() {
-        const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/user_profiles?select=id,email,is_approved,approved_by,approved_at,created_at&order=created_at.desc`,
-            { headers: headers(accessToken) }
-        );
-        if (!res.ok) { showToast('Failed to load users', 'error'); return; }
-        const users = await res.json();
+        const { data, error } = await client.functions.invoke('admin/approvals', { method: 'GET' });
+        if (error) {
+            showToast('Failed to load users. Sign in again if your session expired.', 'error');
+            return;
+        }
+        const pending = data.users.filter(user => !user.is_approved);
+        const approved = data.users.filter(user => user.is_approved);
 
-        const pending = users.filter(u => !u.is_approved);
-        const approved = users.filter(u => u.is_approved);
-
-        document.getElementById('pendingCount').textContent = pending.length;
-        document.getElementById('approvedCount').textContent = approved.length;
-
-        document.getElementById('pendingBody').innerHTML = pending.length
-            ? pending.map(u => `
-                <tr>
-                    <td class="email">${u.email}</td>
-                    <td class="date">${formatDate(u.created_at)}</td>
-                    <td><span class="status-badge status-pending">Pending</span></td>
-                    <td>
-                        <button class="btn btn-approve" onclick="approveUser('${u.id}','${u.email}')">Approve</button>
-                        <button class="btn btn-reject" onclick="rejectUser('${u.id}','${u.email}')">Reject</button>
-                    </td>
-                </tr>`).join('')
-            : '<tr><td colspan="4" class="empty">No pending approvals</td></tr>';
-
-        document.getElementById('approvedBody').innerHTML = approved.length
-            ? approved.map(u => `
-                <tr>
-                    <td class="email">${u.email}</td>
-                    <td class="date">${formatDate(u.approved_at)}</td>
-                    <td class="date">${u.approved_by || '—'}</td>
-                </tr>`).join('')
-            : '<tr><td colspan="3" class="empty">No approved users yet</td></tr>';
+        byId('pendingCount').textContent = pending.length;
+        byId('approvedCount').textContent = approved.length;
+        fillTable(byId('pendingBody'), pending, 'No pending approvals', 4, (row, user) => {
+            addText(row, user.email, 'email');
+            addText(row, formatDate(user.created_at), 'date');
+            addText(row, 'Pending');
+            const actions = row.insertCell();
+            addAction(actions, 'Approve', 'btn-approve', () => updateUser(user, true));
+            addAction(actions, 'Reject', 'btn-reject', () => updateUser(user, false));
+        });
+        fillTable(byId('approvedBody'), approved, 'No approved users yet', 3, (row, user) => {
+            addText(row, user.email, 'email');
+            addText(row, formatDate(user.approved_at), 'date');
+            addText(row, user.approved_by || '-', 'date');
+        });
     }
 
-    async function approveUser(userId, email) {
-        const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`,
-            {
-                method: 'PATCH',
-                headers: { ...headers(accessToken), 'Prefer': 'return=minimal' },
-                body: JSON.stringify({
-                    is_approved: true,
-                    approved_by: adminEmail,
-                    approved_at: new Date().toISOString()
-                })
-            }
-        );
-        if (res.ok || res.status === 204) {
-            showToast(`✓ ${email} approved`, 'success');
-            loadUsers();
-        } else {
-            showToast('Failed to approve user', 'error');
+    async function updateUser(user, approve) {
+        if (!approve && !confirm('Delete account for ' + user.email + '? This cannot be undone.')) return;
+        const path = 'admin/users/' + encodeURIComponent(user.id) + (approve ? '/approve' : '');
+        const { error } = await client.functions.invoke(path, { method: approve ? 'POST' : 'DELETE' });
+        if (error) {
+            showToast(approve ? 'Failed to approve user' : 'Failed to reject user', 'error');
+            return;
         }
+        showToast(approve ? 'User approved' : 'User rejected and removed');
+        await loadUsers();
     }
 
-    async function rejectUser(userId, email) {
-        if (!confirm(`Delete account for ${email}? This cannot be undone.`)) return;
-        // Delete the profile — the auth.users cascade will handle the rest
-        const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}`,
-            { method: 'DELETE', headers: { ...headers(accessToken), 'Prefer': 'return=minimal' } }
-        );
-        if (res.ok || res.status === 204) {
-            showToast(`${email} rejected and removed`, 'success');
-            loadUsers();
-        } else {
-            showToast('Failed to reject user', 'error');
-        }
+    async function signOut() {
+        const { error } = await client.auth.signOut({ scope: 'local' });
+        if (error) return showToast('Could not sign out. Try again.', 'error');
+        location.reload();
     }
 
     function formatDate(iso) {
-        if (!iso) return '—';
-        return new Date(iso).toLocaleString();
+        return iso ? new Date(iso).toLocaleString() : '-';
     }
 
     function showToast(msg, type = 'success') {
-        const t = document.getElementById('toast');
+        const t = byId('toast');
         t.textContent = msg;
-        t.className = `toast show ${type}`;
+        t.className = 'toast show ' + type;
         setTimeout(() => t.className = 'toast', 3000);
     }
 
-    // Auto-show main if already logged in
-    if (accessToken) showMain();
+    async function initializeApprovals() {
+        try {
+            const { state } = await checkAdminSession();
+            if (state === 'mfa') return location.replace(signInUrl('approvals'));
+            if (state === 'forbidden') throw new Error('Not an administrator');
+            if (state !== 'ready') return;
+            byId('loginSection').style.display = 'none';
+            byId('mainSection').style.display = 'block';
+            await loadUsers();
+        } catch {
+            byId('loginError').textContent = 'Could not verify administrator access.';
+            byId('loginError').style.display = 'block';
+        }
+    }
+
+    initializeApprovals();
 </script>
 </body>
 </html>

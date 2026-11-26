@@ -25,19 +25,7 @@
                 <h2>Admin Login</h2>
                 <p class="text-muted">Sign in with your Supabase admin account</p>
                 
-                <form id="loginForm">
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="email" id="email" required placeholder="admin@example.com" class="form-control">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="password">Password</label>
-                        <input type="password" id="password" required placeholder="••••••••" class="form-control">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-block">Sign In</button>
-                </form>
+                <a class="btn btn-primary btn-block" href="/site/DMB/admin-login.html?console=devices">Sign In</a>
 
                 <div id="loginError" class="alert alert-danger" style="display:none;"></div>
             </div>
@@ -52,6 +40,7 @@
                     <p class="text-muted">View and manage all registered devices</p>
                 </div>
                 <div class="header-actions">
+                    <a href="pending-approvals.html" class="btn btn-secondary">Approvals</a>
                     <button id="refreshBtn" class="btn btn-secondary">Refresh</button>
                 </div>
             </div>
@@ -163,7 +152,8 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2.105.0/dist/main.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0/dist/umd/supabase.js" integrity="sha384-OMZvx3Vy2g+m2/bV7wq4vKCSjS3P2+OVcOXSaqWaoK3ZoSAHaje1LSM9FK4MNk2J" crossorigin="anonymous"></script>
+    <script src="admin-session.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
